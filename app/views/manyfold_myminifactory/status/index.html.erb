@@ -1,1 +1,4 @@
 <p><%= @linked ? "myminifactory is linked" : "myminifactory not linked" %></p>
+<% if policy(:settings).integrations? %>
+  <nav><%= link_to "Import", manyfold_myminifactory.import_path %></nav>
+<% end %>
