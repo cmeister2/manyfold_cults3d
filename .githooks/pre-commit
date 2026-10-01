@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+"""Reject non-ASCII filenames and content in the Git index."""
+import subprocess
+import sys
+
+paths = subprocess.check_output([
+    "git", "diff", "--cached", "--name-only", "--diff-filter=ACMRT", "-z",
+]).split(b"\0")
+
+failed = False
+for path in filter(None, paths):
+    name = ascii(path.decode("utf-8", errors="surrogateescape"))
+    if not path.isascii():
+        print(f"{name}: non-ASCII filename", file=sys.stderr)
+        failed = True
+    content = subprocess.check_output([b"git", b"cat-file", b"blob", b":" + path])
+    for number, line in enumerate(content.split(b"\n"), 1):
+        if not line.isascii():
+            print(f"{name}:{number}: non-ASCII content", file=sys.stderr)
+            failed = True
+
+if failed:
+    print("Commit blocked: staged files must contain only ASCII.", file=sys.stderr)
+sys.exit(1 if failed else 0)

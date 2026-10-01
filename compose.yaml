@@ -1,0 +1,26 @@
+name: manyfold-myminifactory-dev
+
+services:
+  manyfold:
+    build: .
+    image: manyfold-myminifactory-dev
+    ports:
+      - "127.0.0.1:3214:3214"
+    environment:
+      SECRET_KEY_BASE: local-plugin-development-only-8e7b41e9a6c547ca8b32c78c887bb7be
+      PLUGINS_PATH: /plugins
+      MULTIUSER: disabled
+      PUID: "1000"
+      PGID: "1000"
+    volumes:
+      - local-config:/config
+      - .:/plugins/manyfold_myminifactory:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:3214/health"]
+      interval: 5s
+      timeout: 3s
+      start_period: 30s
+      retries: 30
+
+volumes:
+  local-config:
