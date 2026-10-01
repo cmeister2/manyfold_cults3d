@@ -1,4 +1,9 @@
-<p><%= @linked ? "myminifactory is linked" : "myminifactory not linked" %></p>
+<% if @imported_at %>
+  <p><%= @model_count %> models in database</p>
+  <p>Imported at <%= @imported_at.strftime("%Y-%m-%d %H:%M:%S %Z") %></p>
+<% else %>
+  <p><%= @linked ? "myminifactory is linked" : "myminifactory not linked" %></p>
+<% end %>
 <% if policy(:settings).integrations? %>
   <nav><%= link_to "Import", manyfold_myminifactory.import_path %></nav>
 <% end %>
