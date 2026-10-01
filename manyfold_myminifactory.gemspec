@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |spec|
   spec.name = "manyfold_myminifactory"
-  spec.version = "0.1.0"
+  spec.version = "0.0.0"
   spec.authors = ["Max Dymond"]
   spec.summary = "MyMiniFactory integration"
   spec.description = "MyMiniFactory integration"

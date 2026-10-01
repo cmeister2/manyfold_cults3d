@@ -64,6 +64,10 @@ class MyMiniFactoryPluginTest < Minitest::Test
 
   def test_real_host_navigation_and_status_for_both_roles_and_all_settings
     assert_kind_of Rails::Engine, ManyfoldMyminifactory::Engine.instance
+    expected_version = ENV["MANYFOLD_MYMINIFACTORY_EXPECTED_VERSION"]
+    if expected_version.present?
+      assert_equal expected_version, PluginManager.all.fetch("manyfold_myminifactory").version.to_s
+    end
     assert_includes PluginManager.components_for(:navbar), Components::ManyfoldMyminifactory::NavLink
 
     @users.each do |user|
