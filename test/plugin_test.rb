@@ -417,3 +417,7 @@ class MyMiniFactoryPluginTest < Minitest::Test
     assert_includes hrefs, "#{script_name}/models"
   end
 end
+
+require_relative "library_matcher_test"
+require_relative "link_services_test"
+require_relative "link_test"

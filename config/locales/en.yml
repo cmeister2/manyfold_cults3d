@@ -1,0 +1,5 @@
+en:
+  manyfold_myminifactory:
+    errors:
+      request_failed: "Could not get MyMiniFactory model details."
+      sync_failed: "Could not sync the MyMiniFactory model."
