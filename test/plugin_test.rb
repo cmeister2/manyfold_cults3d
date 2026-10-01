@@ -85,6 +85,7 @@ class MyMiniFactoryPluginTest < Minitest::Test
       assert_equal "Save", form.at_css('input[type="submit"]')["value"]
       post_json(session, json, form, prefix)
       assert_equal 303, session.response.status
+      assert_equal "1 model imported.", session.request.flash[:notice]
       assert_equal "#{session.request.base_url}#{prefix}/manyfold_myminifactory/import", session.response.location
       assert_equal json, saved_json
       imported_at = SiteSettings.find_by!(var: IMPORT_KEY).updated_at
@@ -186,6 +187,7 @@ class MyMiniFactoryPluginTest < Minitest::Test
     form = import_form(session)
     post_json(session, JSON.generate([model_entry(6001), model_entry(6002)]), form)
     assert_equal 303, session.response.status
+    assert_equal "2 models imported.", session.request.flash[:notice]
     original_model = library_models.find_by!(myminifactory_id: 6001)
     absent_model = library_models.find_by!(myminifactory_id: 6002).attributes
     updated = model_entry(6001, name: "Updated example model", source: "TRIBE").merge(
@@ -195,6 +197,7 @@ class MyMiniFactoryPluginTest < Minitest::Test
     json = JSON.generate([updated])
     post_json(session, json, form)
     assert_equal 303, session.response.status
+    assert_equal "1 model imported.", session.request.flash[:notice]
     assert_equal json, saved_json
     assert_equal 2, library_models.count
     assert_equal absent_model, library_models.find_by!(myminifactory_id: 6002).attributes
@@ -261,6 +264,7 @@ class MyMiniFactoryPluginTest < Minitest::Test
     [first_import, first_import + 60].each do |imported_at|
       travel_to(imported_at) { post_json(session, json, form) }
       assert_equal 303, session.response.status
+      assert_equal "4 models imported.", session.request.flash[:notice]
       assert_equal json, saved_json
       assert_equal imported_at, SiteSettings.find_by!(var: IMPORT_KEY).updated_at
       assert_equal 4, library_models.count
@@ -305,10 +309,12 @@ class MyMiniFactoryPluginTest < Minitest::Test
       {"originalId" => 3003, "type" => "collection"}
     ]
     session = browser(@users.first)
-    [[[], 0], [models, 1], [[], 1]].each do |entries, count|
+    [[[], 0, "0 models imported."], [models, 1, "1 model imported."],
+      [[], 1, "0 models imported."]].each do |entries, count, notice|
       form = import_form(session, "/manyfold")
       post_json(session, JSON.generate(entries), form, "/manyfold")
       assert_equal 303, session.response.status
+      assert_equal notice, session.request.flash[:notice]
       assert_equal count, library_models.count
       imported_at = SiteSettings.find_by!(var: IMPORT_KEY).updated_at
       assert_status_summary(session, count, imported_at, "/manyfold")

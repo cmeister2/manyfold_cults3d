@@ -19,7 +19,8 @@ module ManyfoldMyminifactory
         SiteSettings.manyfold_myminifactory_import_json = @json
         SiteSettings.find_by!(var: "manyfold_myminifactory_import_json").touch
       end
-      redirect_to manyfold_myminifactory.import_path, notice: "JSON saved.", status: :see_other
+      redirect_to manyfold_myminifactory.import_path,
+        notice: "#{helpers.pluralize(models.length, 'model')} imported.", status: :see_other
     rescue JSON::ParserError, Inventory::Error
       flash.now[:alert] = "Invalid JSON."
       render :new, status: :unprocessable_content
