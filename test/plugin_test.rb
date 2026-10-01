@@ -129,7 +129,7 @@ class MyMiniFactoryPluginTest < Minitest::Test
     session.get("/manyfold_myminifactory/")
     assert_equal 200, session.response.status
     document = Nokogiri::HTML(session.response.body)
-    assert_nil document.at_css('main nav a[href$="/import"]')
+    assert_nil document.at_css('#myminifactory-tabs a[href$="/import"]')
     token = document.at_css('meta[name="csrf-token"]')["content"]
     origin = session.request.base_url
     session.get("/manyfold_myminifactory/import")
@@ -351,7 +351,7 @@ class MyMiniFactoryPluginTest < Minitest::Test
     session.get("/manyfold_myminifactory/", env: environment)
     assert_equal 200, session.response.status
     document = Nokogiri::HTML(session.response.body)
-    link = document.at_css('main nav a[href$="/import"]')
+    link = document.at_css('#myminifactory-tabs a[href$="/import"]')
     refute_nil link
     assert_equal "#{prefix}/manyfold_myminifactory/import", link["href"]
     session.get(link["href"].delete_prefix(prefix), env: environment)
@@ -379,8 +379,10 @@ class MyMiniFactoryPluginTest < Minitest::Test
     assert_equal 200, session.response.status
     document = Nokogiri::HTML(session.response.body)
     assert_equal ["#{count} models in database", "Imported at #{imported_at.strftime("%Y-%m-%d %H:%M:%S %Z")}"],
-      document.css("main p:not(.alert)").map { |paragraph| paragraph.text.strip }
-    assert_empty document.css("main table")
+      document.css("#myminifactory-import-summary p").map { |paragraph| paragraph.text.strip }
+    table = document.at_css("#myminifactory-models")
+    refute_nil table
+    assert_equal count, table.css("tbody tr").size
   end
 
   def assert_navigation(user, key, script_name: "")
@@ -421,3 +423,4 @@ end
 require_relative "library_matcher_test"
 require_relative "link_services_test"
 require_relative "link_test"
+require_relative "status_models_test"
