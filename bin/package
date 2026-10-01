@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Create the source ZIP accepted by Manyfold's plugin upload page."""
+import argparse
+from pathlib import Path
+import re
+import zipfile
+
+
+def main():
+    root = Path(__file__).resolve().parents[1]
+    gemspec = root / "manyfold_myminifactory.gemspec"
+    source = gemspec.read_text(encoding="utf-8")
+    version_line = re.compile(r'(?m)^([ \t]*spec\.version[ \t]*=[ \t]*)"([^"]+)"[ \t]*$')
+    match = version_line.search(source)
+    if match is None:
+        raise SystemExit("Cannot find spec.version in the gemspec.")
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("version", nargs="?", default=match[2], metavar="VERSION")
+    args = parser.parse_args()
+    if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", args.version) or args.version == "0.0.0":
+        parser.error("VERSION must be a positive X.Y.Z version without leading zeroes.")
+
+    packaged_gemspec = version_line.sub(lambda line: f'{line[1]}"{args.version}"', source)
+    files = [gemspec]
+    for directory in ("app", "config", "db", "lib"):
+        files.extend(path for path in (root / directory).rglob("*") if path.is_file())
+
+    destination = root / "dist" / "manyfold_myminifactory.zip"
+    destination.parent.mkdir(exist_ok=True)
+    with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(files):
+            name = path.relative_to(root).as_posix()
+            if path == gemspec:
+                info = zipfile.ZipInfo.from_file(path, name)
+                archive.writestr(info, packaged_gemspec, compress_type=zipfile.ZIP_DEFLATED)
+            else:
+                archive.write(path, name)
+    print(destination)
+
+
+if __name__ == "__main__":
+    main()
