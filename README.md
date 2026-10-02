@@ -17,7 +17,7 @@ See Manyfold's [plugin installation guide](https://manyfold.app/sysadmin/plugins
 1. Sign in to [MyMiniFactory](https://www.myminifactory.com/library) in your browser.
 2. Open the [library API page](https://www.myminifactory.com/api/data-library/objectPreviews).
 3. Copy the complete JSON response.
-4. In Manyfold, open **MyMiniFactory > Import**, paste the JSON, and select **Save**.
+4. In Manyfold, open **Providers > MyMiniFactory > Import**, paste the JSON, and select **Save**.
 
 The import saves library records in the database. Duplicate MyMiniFactory IDs are merged; subsequent imports update existing records and retain entries absent from the new JSON.
 
@@ -28,6 +28,21 @@ The import saves library records in the database. Duplicate MyMiniFactory IDs ar
 For an existing Manyfold model, choose **Link to MyMiniFactory** from its menu. The page suggests fuzzy matches from your imported library. Select **Use this model**, or enter a MyMiniFactory URL or ID, then select **Link and sync**. This action appears when an API key is configured.
 
 JSON import alone does not create Manyfold models. Creating or syncing a model imports its details and images; download its 3D model files from MyMiniFactory and import them into Manyfold separately.
+
+## Provider navigation
+
+The plugin adds MyMiniFactory to a shared **Providers** dropdown. The menu helper is bundled, so no additional plugin is required.
+
+Other provider plugins can bundle `lib/manyfold/provider_menu.rb` unchanged and register their menu item after Rails initializes:
+
+```ruby
+require "manyfold/provider_menu"
+Manyfold::ProviderMenu.register(Components::ExampleProvider::MenuItem)
+```
+
+The component supplies a class method `label` and renders a Manyfold `DropdownItem` with its own icon and route. Entries are sorted by label. Ruby loads one copy of the helper, and repeated registration creates one dropdown. An optional class method `visible?(view_context)` controls visibility for the current request; an empty menu is hidden.
+
+Keep the shared helper API compatible across providers: Ruby uses the first bundled copy on its load path.
 
 ## Local development
 

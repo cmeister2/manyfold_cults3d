@@ -82,10 +82,10 @@ class MyMiniFactoryPluginTest
         document = Nokogiri::HTML(session.response.body)
         model_links = document.css('a[href]').select { |link| link.text.strip == "Link to MyMiniFactory" }
         assert_equal key.present? ? 1 : 0, model_links.size
-        navbar_link = document.css('#main-navbar a.nav-link').find { |link| link.text.strip == "MyMiniFactory" }
-        refute_nil navbar_link
-        assert_equal "/manyfold_myminifactory", navbar_link["href"].delete_suffix("/")
-        session.get(navbar_link["href"])
+        provider_link = document.css('#providers-menu a.dropdown-item').find { |link| link.text.strip == "MyMiniFactory" }
+        refute_nil provider_link
+        assert_equal "/manyfold_myminifactory", provider_link["href"].delete_suffix("/")
+        session.get(provider_link["href"])
         assert_equal 200, session.response.status
       end
       assert_empty link_jobs

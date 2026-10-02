@@ -68,7 +68,8 @@ class MyMiniFactoryPluginTest < Minitest::Test
     if expected_version.present?
       assert_equal expected_version, PluginManager.all.fetch("manyfold_myminifactory").version.to_s
     end
-    assert_includes PluginManager.components_for(:navbar), Components::ManyfoldMyminifactory::NavLink
+    assert_includes PluginManager.components_for(:navbar), Manyfold::ProviderMenu::Dropdown
+    assert_includes PluginManager.components_for(:provider_menu), Components::ManyfoldMyminifactory::ProviderMenuItem
 
     @users.each do |user|
       [nil, "", "   ", "local-test-api-key"].each do |key|
@@ -408,18 +409,27 @@ class MyMiniFactoryPluginTest < Minitest::Test
     assert_equal 200, session.response.status
     assert_equal script_name, session.request.script_name
     document = Nokogiri::HTML(session.response.body)
-    link = document.css("#main-navbar a.nav-link").find { |element| element.text.strip == "MyMiniFactory" }
-    refute_nil link, "MyMiniFactory was missing from the host navbar."
+    toggle = document.at_css("#main-navbar #nav-link-providers")
+    refute_nil toggle, "Providers was missing from the host navbar."
+    assert_equal "Providers", toggle.text.strip
+    assert_equal "dropdown", toggle["data-bs-toggle"]
+    assert_equal "providers-menu", toggle["aria-controls"]
+    refute_nil toggle.at_css(".bi-plug"), "The Providers dropdown was missing its icon."
+    assert_equal 1, document.css("#main-navbar #providers-menu").size
+    assert_equal ["MyMiniFactory"], document.css("#providers-menu a.dropdown-item").map { |element| element.text.strip }
+    refute document.css("#main-navbar a.nav-link").any? { |element| element.text.strip == "MyMiniFactory" }
+    link = document.at_css("#providers-menu a.dropdown-item")
+    refute_nil link, "MyMiniFactory was missing from the Providers dropdown."
     assert_equal "#{script_name}/manyfold_myminifactory", link["href"].delete_suffix("/")
-    refute_nil link.at_css(".bi-box-seam"), "The navbar link was missing its icon."
+    refute_nil link.at_css(".bi-box-seam"), "The provider menu item was missing its icon."
 
     # A reverse proxy strips its mount prefix from PATH_INFO and supplies SCRIPT_NAME.
     session.get(link["href"].delete_prefix(script_name), env: environment)
     assert_equal 200, session.response.status
     document = Nokogiri::HTML(session.response.body)
-    plugin_link = document.css("#main-navbar a.nav-link").find { |element| element.text.strip == "MyMiniFactory" }
+    plugin_link = document.css("#providers-menu a.dropdown-item").find { |element| element.text.strip == "MyMiniFactory" }
     refute_nil plugin_link
-    assert_equal link["href"], plugin_link["href"], "The plugin navbar link changed its mount prefix."
+    assert_equal link["href"], plugin_link["href"], "The provider menu item changed its mount prefix."
     message = key.present? ? "myminifactory is linked" : "myminifactory not linked"
     paragraphs = document.css("main p").map { |paragraph| paragraph.text.strip }
     assert_includes paragraphs, message
@@ -434,3 +444,4 @@ require_relative "library_matcher_test"
 require_relative "link_services_test"
 require_relative "link_test"
 require_relative "status_models_test"
+require_relative "provider_menu_test"
