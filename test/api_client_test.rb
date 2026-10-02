@@ -40,6 +40,52 @@ class Cults3DApiClientTest < Minitest::Test
     end
   end
 
+  def test_creator_lookup_uses_graphql_variables_and_validates_profile_identity
+    payload = {"nick" => "Example Studio", "bio" => "Studio bio",
+      "url" => "https://cults3d.com/en/users/Example%20Studio", "imageUrl" => nil}
+    client, requests, stubs = stub_client({"data" => {"user" => payload}})
+    assert_equal payload, client.creator("example studio")
+    assert_equal({"nick" => "example studio"}, requests.first[:body]["variables"])
+    assert_includes requests.first[:body]["query"], "user(nick: $nick)"
+    assert_includes requests.first[:body]["query"], "url(locale: EN)"
+    refute_includes JSON.generate(requests.first[:body]), API_KEY
+    stubs.verify_stubbed_calls
+  end
+
+  def test_creator_lookup_rejects_mismatched_or_missing_profiles
+    [{"nick" => "other-studio", "url" => "https://cults3d.com/en/users/other-studio"},
+      {"nick" => "example-studio", "url" => "https://cults3d.com/en/users/other-studio"},
+      {"nick" => "example-studio", "url" => "https://example.invalid/en/users/example-studio"},
+      {"nick" => "example-studio"}, {}, "example-studio"].each do |payload|
+      client, = stub_client({"data" => {"user" => payload}})
+      assert_redacted(assert_raises(Client::InvalidResponse) { client.creator("example-studio") })
+    end
+    client, = stub_client({"data" => {"user" => nil}})
+    assert_raises(Client::NotFound) { client.creator("example-studio") }
+  end
+
+  def test_invalid_creator_nickname_never_sends_a_request
+    [nil, "", " ", "example/studio", 'studio") { myself { nick } }',
+      "https://cults3d.com/en/users/studio", ["studio"]].each do |nick|
+      client, requests, = stub_client
+      assert_raises(Client::InvalidObjectId) { client.creator(nick) }
+      assert_empty requests
+    end
+  end
+
+  def test_creator_http_graphql_and_network_failures_use_safe_errors
+    client, = stub_client({"data" => {"user" => nil}, "errors" => [{"message" => "#{USERNAME}:#{API_KEY}"}]})
+    assert_redacted(assert_raises(Client::InvalidResponse) { client.creator("example-studio") })
+    client, = stub_client({"message" => "#{USERNAME}:#{API_KEY}"}, status: 403)
+    assert_redacted(assert_raises(Client::AuthenticationError) { client.creator("example-studio") })
+    stubs = Faraday::Adapter::Test::Stubs.new do |stub|
+      stub.post(Client::BASE_URL) { raise Faraday::ConnectionFailed, "#{USERNAME}:#{API_KEY}" }
+    end
+    connection = Faraday.new { |builder| builder.response :json; builder.adapter :test, stubs }
+    client = Client.new(username: USERNAME, api_key: API_KEY, connection: connection)
+    assert_redacted(assert_raises(Client::Unavailable) { client.creator("example-studio") })
+  end
+
   def test_model_url_uses_its_slug_without_query_or_fragment
     client, requests, stubs = stub_client({"data" => {"creation" => creation(42)}})
     client.object("https://cults3d.com/en/3d-model/art/copper-dragon-42?utm_source=example#photos")

@@ -22,6 +22,8 @@ To link an existing Manyfold model, choose **Link to Cults3D** from its menu. Se
 
 Sync imports the name, description, printing details, tags, license, creator, and images. Download 3D files from Cults3D and import them into Manyfold separately; the plugin cannot download them through the API.
 
+On **Creators**, choose **Link to Cults3D** from a creator's menu and select one of their linked models to sync their name, bio, and avatar. The action appears when they have Cults3D-linked models and no existing Cults3D profile link.
+
 ## Development
 
 Copy `.env.example` to `.env` and set `CULTS3D_USERNAME` and `CULTS3D_API_KEY`. These environment variables override Manyfold's integration settings.

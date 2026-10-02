@@ -48,6 +48,11 @@ module ManyfoldCults3d
         }
       }
     GRAPHQL
+    CREATOR_QUERY = <<~GRAPHQL.freeze
+      query Creator($nick: String!) {
+        user(nick: $nick) { nick bio url(locale: EN) imageUrl }
+      }
+    GRAPHQL
 
     class Error < StandardError; end
     class ConfigurationError < Error; end
@@ -122,6 +127,21 @@ module ManyfoldCults3d
       end
       raise NotFound, "Cults3D could not find that model." if payload.nil?
       invalid! unless payload.is_a?(Hash) && source.matches?(payload)
+      payload
+    end
+
+    def creator(nick)
+      unless CreatorSource.valid_username?(nick)
+        raise InvalidObjectId, "Enter a Cults3D creator username."
+      end
+      payload = request(CREATOR_QUERY, {nick: nick})["user"]
+      raise NotFound, "Cults3D could not find that creator." if payload.nil?
+      source = begin
+        CreatorSource.from_payload(payload)
+      rescue CreatorSource::Invalid
+        nil
+      end
+      invalid! unless source && source.username.casecmp?(nick)
       payload
     end
 
