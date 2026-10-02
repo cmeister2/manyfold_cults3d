@@ -14,7 +14,7 @@ See Manyfold's [plugin installation guide](https://manyfold.app/sysadmin/plugins
 
 ## Use
 
-Open **Providers > Cults3D > Import** and select **Refresh library** to load your purchased and previously downloaded free models. Refreshes update saved entries and preserve existing links. Entries missing from a later refresh remain saved; failed refreshes leave the saved list unchanged.
+Open **Providers > Cults3D > Import** and select **Refresh library** to load your purchased and previously downloaded free models. Refreshes update saved entries and remove ones no longer in your Cults3D library. Manyfold models and files are always kept. Failed refreshes leave the saved list unchanged.
 
 **Status** shows your saved library and its links to Manyfold models. Choose **Create Model** on an unlinked entry to create a model and queue metadata and image sync. This requires a default Manyfold library.
 

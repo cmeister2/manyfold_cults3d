@@ -126,31 +126,31 @@ class Cults3DPluginTest < Minitest::Test
 
   def test_failed_refresh_preserves_rows_and_last_successful_import_time
     configure_api
-    session = browser(@users.first)
-    form = import_form(session)
-    with_api_client(FakeLibraryClient.new([model_entry(5001)])) { post_refresh(session, form) }
-    rows_before = library_models.order(:id).map(&:attributes)
-    imported_at = SiteSettings.manyfold_cults3d_imported_at
-    invalid = model_entry(5003, name: "   ")
-    failures = [FakeLibraryClient.new([model_entry(5002), invalid]),
-      FakeLibraryClient.new(ManyfoldCults3d::ApiClient::Error.new("Fictional API failure."))]
-    failures.each do |client|
-      form = import_form(session)
-      with_api_client(client) { post_refresh(session, form) }
-      assert_equal 422, session.response.status
-      assert_equal rows_before, library_models.order(:id).map(&:attributes)
-      assert_equal imported_at, SiteSettings.manyfold_cults3d_imported_at
-      refute_nil Nokogiri::HTML(session.response.body).at_css('form[action$="/import"]')
+    with_refresh_native_models(5001, 5004) do |models, session|
+      rows_before = library_models.order(:id).map(&:attributes)
+      native_before = refresh_native_snapshot(models)
+      imported_at = SiteSettings.manyfold_cults3d_imported_at
+      invalid = model_entry(5003, name: "   ")
+      failures = [FakeLibraryClient.new([model_entry(5002), invalid]), FakeLibraryClient.new(nil),
+        FakeLibraryClient.new(ManyfoldCults3d::ApiClient::Error.new("Fictional API failure."))]
+      failures.each do |client|
+        form = import_form(session)
+        with_api_client(client) { post_refresh(session, form) }
+        assert_equal 422, session.response.status
+        assert_equal rows_before, library_models.order(:id).map(&:attributes)
+        assert_equal native_before, refresh_native_snapshot(models)
+        assert_equal imported_at, SiteSettings.manyfold_cults3d_imported_at
+        refute_nil Nokogiri::HTML(session.response.body).at_css('form[action$="/import"]')
+      end
     end
   end
 
-  def test_import_updates_existing_rows_retains_absent_models_and_deduplicates_orders
+  def test_import_updates_existing_rows_removes_absent_entries_and_deduplicates_orders
     configure_api
     session = browser(@users.first)
     form = import_form(session)
     with_api_client(FakeLibraryClient.new([model_entry(6001), model_entry(6002)])) { post_refresh(session, form) }
     original_id = library_models.find_by!(cults3d_id: creation_identifier(6001)).id
-    absent_model = library_models.find_by!(cults3d_id: creation_identifier(6002)).attributes
     updated = model_entry(6001, name: "Updated example model", added_at: "2025-02-01T12:00:00Z")
     updated.fetch("lines").first.fetch("creation")["tags"] = ["updated"]
     first_import = Time.current.utc.change(usec: 0)
@@ -161,27 +161,72 @@ class Cults3DPluginTest < Minitest::Test
       end
       assert_equal 303, session.response.status
       assert_equal "1 model imported.", session.request.flash[:notice]
-      assert_equal 2, library_models.count
+      assert_equal 1, library_models.count
       refreshed = library_models.find_by!(cults3d_id: creation_identifier(6001))
       assert_equal original_id, refreshed.id
       assert_equal "Updated example model", refreshed.name
       assert_equal ["updated"], refreshed.tags
       assert_equal Time.utc(2025, 2, 1, 12), refreshed.library_added_at
-      assert_equal absent_model, library_models.find_by!(cults3d_id: creation_identifier(6002)).attributes
+      refute library_models.exists?(cults3d_id: creation_identifier(6002))
       assert_equal imported_at, Time.iso8601(SiteSettings.manyfold_cults3d_imported_at)
-      assert_status_summary(session, 2, imported_at)
+      assert_status_summary(session, 1, imported_at)
     end
   end
 
-  def test_empty_refresh_records_success_without_deleting_saved_models
+  def test_refresh_removes_absent_entries_and_preserves_created_and_linked_native_models
     configure_api
-    save_status_examples([model_entry(7001)])
-    session = browser(@users.first)
-    form = import_form(session)
-    with_api_client(FakeLibraryClient.new([])) { post_refresh(session, form) }
-    assert_equal 303, session.response.status
-    assert_equal "0 models imported.", session.request.flash[:notice]
-    assert_status_summary(session, 1, Time.iso8601(SiteSettings.manyfold_cults3d_imported_at))
+    with_refresh_native_models(7201, 7202) do |models, session|
+      save_status_examples([model_entry(7203)])
+      retained_id = library_models.find_by!(cults3d_id: creation_identifier(7203)).id
+      native_before = refresh_native_snapshot(models)
+      form = import_form(session)
+      client = FakeLibraryClient.new([model_entry(7203, name: "Updated retained entry"), model_entry(7204)])
+      with_api_client(client) { post_refresh(session, form) }
+      assert_equal 303, session.response.status
+      assert_equal "2 models imported.", session.request.flash[:notice]
+      assert_equal [7203, 7204].map { |id| creation_identifier(id) }.sort, library_models.pluck(:cults3d_id).sort
+      assert_equal retained_id, library_models.find_by!(cults3d_id: creation_identifier(7203)).id
+      assert_equal "Updated retained entry", library_models.find_by!(cults3d_id: creation_identifier(7203)).name
+      assert_equal native_before, refresh_native_snapshot(models)
+      assert_status_summary(session, 2, Time.iso8601(SiteSettings.manyfold_cults3d_imported_at))
+    end
+  end
+
+  def test_empty_refresh_removes_all_entries_and_preserves_created_and_linked_native_models
+    configure_api
+    with_refresh_native_models(7001, 7002) do |models, session|
+      native_before = refresh_native_snapshot(models)
+      form = import_form(session)
+      with_api_client(FakeLibraryClient.new([])) { post_refresh(session, form) }
+      assert_equal 303, session.response.status
+      assert_equal "0 models imported.", session.request.flash[:notice]
+      assert_empty library_models.all
+      assert_equal native_before, refresh_native_snapshot(models)
+      assert_status_summary(session, 0, Time.iso8601(SiteSettings.manyfold_cults3d_imported_at))
+    end
+  end
+
+  def test_refresh_rolls_back_upserts_and_removals_when_a_database_delete_fails
+    configure_api
+    with_refresh_native_models(7401, 7402) do |models, session|
+      save_status_examples([model_entry(7403)])
+      rows_before = library_models.order(:id).map(&:attributes)
+      native_before = refresh_native_snapshot(models)
+      imported_at = SiteSettings.manyfold_cults3d_imported_at
+      form = import_form(session)
+      deletion_results = []
+      client = FakeLibraryClient.new([model_entry(7403, name: "Updated retained entry"), model_entry(7404)])
+      with_library_delete_failure(deletion_results, creation_identifier(7404)) do
+        with_api_client(client) { post_refresh(session, form) }
+      end
+      assert_equal 422, session.response.status
+      assert_equal [[2, true]], deletion_results, "The injected failure did not occur after upserts and removals."
+      assert_equal rows_before, library_models.order(:id).map(&:attributes)
+      assert_equal native_before, refresh_native_snapshot(models)
+      assert_equal imported_at, SiteSettings.manyfold_cults3d_imported_at
+      refute library_models.exists?(cults3d_id: creation_identifier(7404))
+      assert_includes session.request.flash[:alert], "Your saved library has not changed."
+    end
   end
 
   def test_refresh_requires_both_credentials_without_changing_saved_rows
@@ -241,6 +286,69 @@ class Cults3DPluginTest < Minitest::Test
         "creation" => {"identifier" => creation_identifier(id), "slug" => creation_slug(id),
           "url" => "https://cults3d.com/en/3d-model/art/#{creation_slug(id)}", "name" => name,
           "tags" => ["example", "test"], "creator" => {"nick" => "example-creator"}}}]}
+  end
+
+  def with_refresh_native_models(created_id, linked_id)
+    SiteSettings.default_library = @library.id
+    save_status_examples([model_entry(created_id), model_entry(linked_id)])
+    with_created_status_models do
+      with_native_model(name: "Existing locally imported model") do |existing|
+        session = browser(@users.first)
+        entry = library_models.find_by!(cults3d_id: creation_identifier(created_id))
+        form = status_create_form(session, entry)
+        post_status_create(session, entry, form)
+        assert_equal 303, session.response.status
+        created = entry.reload.model
+        refute_nil created
+        assert_equal created.id, entry.model_id
+        created.links.create!(url: entry.url)
+        existing.links.create!(url: library_models.find_by!(cults3d_id: creation_identifier(linked_id)).url)
+        models = [created, existing]
+        downloads = []
+        with_status_image_download(downloads) do
+          models.each do |model|
+            model.create_or_update_file_from_url(url: "https://example.invalid/fictional-preview.png",
+              filename: "fictional-preview.png")
+            model.reload
+            FileUtils.mkdir_p(File.join(@library_path, model.path))
+            File.binwrite(File.join(@library_path, model.path, "fictional-local-file.txt"), "Fictional local model notes.\n")
+            model.model_files.create!(filename: "fictional-local-file.txt")
+          end
+        end
+        assert_equal 2, downloads.size
+        yield models, session
+      end
+    end
+  end
+
+  def refresh_native_snapshot(models)
+    models.to_h do |model|
+      model.reload
+      links = model.links.order(:id).map(&:attributes)
+      files = model.model_files.order(:id).map do |file|
+        refute_nil file.attachment
+        assert file.attachment.exists?, "Refresh removed the file attachment for #{file.filename}."
+        [file.attributes, File.binread(File.join(model.library.path, model.path, file.filename))]
+      end
+      assert_equal 1, links.length
+      assert_equal 2, files.length
+      [model.id, [model.attributes, links, files, model.owners.order(:id).pluck(:id)]]
+    end
+  end
+
+  def with_library_delete_failure(deletion_results, new_identifier)
+    relation_class = ActiveRecord::Relation
+    original_delete = relation_class.instance_method(:delete_all)
+    imported_class = library_models
+    relation_class.send(:define_method, :delete_all) do
+      next original_delete.bind_call(self) unless klass == imported_class
+      result = original_delete.bind_call(self)
+      deletion_results << [result, imported_class.exists?(cults3d_id: new_identifier)]
+      raise ActiveRecord::StatementInvalid, "Fictional database delete failure."
+    end
+    yield
+  ensure
+    relation_class.send(:define_method, :delete_all, original_delete) if original_delete
   end
 
   def browser(user)
