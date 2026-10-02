@@ -2,19 +2,20 @@
 
 require "minitest/autorun"
 require "benchmark"
-require_relative "../app/services/manyfold_myminifactory/library_matcher"
+require "base64"
+require_relative "../app/services/manyfold_cults3d/library_matcher"
 
 # Entirely fictional examples; no personal library or purchase data.
 class LibraryMatcherTest < Minitest::Test
-  Matcher = ManyfoldMyminifactory::LibraryMatcher
+  Matcher = ManyfoldCults3d::LibraryMatcher
 
   def self.runnable_methods
     super.sort
   end
 
   def item(id, name, creator: "Example creator")
-    {"id" => id, "name" => name, "creator_name" => creator, "creator_id" => 42,
-     "tags" => ["miniature"], "sources" => ["PURCHASE"], "library_added_at" => 1_800_000_000_000}
+    {"id" => id.to_s, "name" => name, "creator_name" => creator,
+     "tags" => ["miniature"], "sources" => ["PURCHASE"], "library_added_at" => "2025-01-01T12:00:00Z"}
   end
 
   def test_exact_title_ranks_before_fuzzy_and_extra_suffixes_and_returns_original_hashes
@@ -22,7 +23,7 @@ class LibraryMatcherTest < Minitest::Test
     before = Marshal.dump(rows)
     result = Matcher.new(rows).matches(name: "Copper Dragon")
 
-    assert_equal [3, 1, 2], result.map { |row| row["id"] }
+    assert_equal [3, 1, 2].map(&:to_s), result.map { |row| row["id"] }
     assert_same rows[2], result.first
     assert_equal before, Marshal.dump(rows)
   end
@@ -31,38 +32,38 @@ class LibraryMatcherTest < Minitest::Test
     rows = [item(1, "Ancient Copper Dragon"), item(2, "Ancient Copper Elf")]
     matcher = Matcher.new(rows)
 
-    assert_equal [1], matcher.matches(name: "Dragon Copper Ancient").map { |row| row["id"] }
-    assert_equal [1], matcher.matches(name: "C:\\models\\Ancient_Copper_Dragon_pre_supported.stl.zip").map { |row| row["id"] }
-    assert_equal [1], matcher.matches(name: "Ancient-Copper-Dragon (hollow) (supported).3mf").map { |row| row["id"] }
+    assert_equal [1].map(&:to_s), matcher.matches(name: "Dragon Copper Ancient").map { |row| row["id"] }
+    assert_equal [1].map(&:to_s), matcher.matches(name: "C:\\models\\Ancient_Copper_Dragon_pre_supported.stl.zip").map { |row| row["id"] }
+    assert_equal [1].map(&:to_s), matcher.matches(name: "Ancient-Copper-Dragon (hollow) (supported).3mf").map { |row| row["id"] }
   end
 
   def test_camelcase_acronyms_punctuation_accents_and_ligatures_are_normalized
     rows = [item(1, "\u00c9lite Clockwork Badger"), item(2, "NOVA Moon Rover"), item(3, "\u00c6ther W\u0153lf"), item(4, "Hollow Knight")]
     matcher = Matcher.new(rows)
 
-    assert_equal [1], matcher.matches(name: "EliteClockworkBadger.stl").map { |row| row["id"] }
-    assert_equal [2], matcher.matches(name: "NOVAMoonRover").map { |row| row["id"] }
-    assert_equal [3], matcher.matches(name: "Aether_Woelf").map { |row| row["id"] }
-    assert_equal [4], matcher.matches(name: "HollowKnight").map { |row| row["id"] }
+    assert_equal [1].map(&:to_s), matcher.matches(name: "EliteClockworkBadger.stl").map { |row| row["id"] }
+    assert_equal [2].map(&:to_s), matcher.matches(name: "NOVAMoonRover").map { |row| row["id"] }
+    assert_equal [3].map(&:to_s), matcher.matches(name: "Aether_Woelf").map { |row| row["id"] }
+    assert_equal [4].map(&:to_s), matcher.matches(name: "HollowKnight").map { |row| row["id"] }
   end
 
   def test_small_typos_including_transpositions_and_two_edits_in_long_words_match
     rows = [item(1, "Copper Dragon"), item(2, "Necromancer Captain"), item(3, "Copper Wagon")]
     matcher = Matcher.new(rows)
 
-    assert_equal [1], matcher.matches(name: "Coppre Drgaon").map { |row| row["id"] }
-    assert_equal [2], matcher.matches(name: "Necromnacer Captaim").map { |row| row["id"] }
-    assert_equal [1], Matcher.new([rows.first]).matches(name: "Coppper Dragon").map { |row| row["id"] }
+    assert_equal [1].map(&:to_s), matcher.matches(name: "Coppre Drgaon").map { |row| row["id"] }
+    assert_equal [2].map(&:to_s), matcher.matches(name: "Necromnacer Captaim").map { |row| row["id"] }
+    assert_equal [1].map(&:to_s), Matcher.new([rows.first]).matches(name: "Coppper Dragon").map { |row| row["id"] }
   end
 
   def test_numeric_variants_are_preserved_and_leading_zeroes_normalize
     rows = [item(1, "Dragon 1"), item(2, "Dragon 2"), item(3, "Dragon 10"), item(4, "Dragon"), item(5, "Dragon Version 2")]
     matcher = Matcher.new(rows)
 
-    assert_equal [2, 5], matcher.matches(name: "Dragon_02_supported.stl").map { |row| row["id"] }
-    assert_equal [5, 2], matcher.matches(name: "Dragon_v2.stl").map { |row| row["id"] }
-    assert_equal [3], matcher.matches(name: "Dragon10").map { |row| row["id"] }
-    assert_equal 4, matcher.matches(name: "Dragon").first["id"]
+    assert_equal [2, 5].map(&:to_s), matcher.matches(name: "Dragon_02_supported.stl").map { |row| row["id"] }
+    assert_equal [5, 2].map(&:to_s), matcher.matches(name: "Dragon_v2.stl").map { |row| row["id"] }
+    assert_equal [3].map(&:to_s), matcher.matches(name: "Dragon10").map { |row| row["id"] }
+    assert_equal "4", matcher.matches(name: "Dragon").first["id"]
     assert_empty matcher.matches(name: "Dragon 3")
   end
 
@@ -72,29 +73,29 @@ class LibraryMatcherTest < Minitest::Test
 
     assert_empty matcher.matches(name: "Copper Dragon", creator: "Wanted studio")
     assert_empty matcher.matches(name: "Bat", creator: "Wanted studio")
-    assert_empty matcher.matches(name: "Dragon", creator: "Wanted studio").select { |row| [1, 4, 5].include?(row["id"]) }
+    assert_empty matcher.matches(name: "Dragon", creator: "Wanted studio").select { |row| %w[1 4 5].include?(row["id"]) }
     assert_empty matcher.matches(name: "", creator: "Wanted studio")
   end
 
   def test_distinctive_single_title_word_can_find_a_long_catalog_title
     rows = [item(7301, "Courier Airship - Zephyrwing - Zephyrwing Cloudrunner Class"), item(2, "Courier Airship Starwind")]
 
-    assert_equal [7301], Matcher.new(rows).matches(name: "Zephyrwing.stl").map { |row| row["id"] }
+    assert_equal [7301].map(&:to_s), Matcher.new(rows).matches(name: "Zephyrwing.stl").map { |row| row["id"] }
   end
 
   def test_creator_breaks_title_ties_without_overriding_a_better_title_match
     rows = [item(1, "Copper Dragon", creator: "Other studio"), item(2, "Copper Dragon", creator: "\u00c9lite Studio"), item(3, "Copper Drgaon", creator: "\u00c9lite Studio")]
     matcher = Matcher.new(rows)
 
-    assert_equal [2, 1, 3], matcher.matches(name: "Copper Dragon", creator: "EliteStudio").map { |row| row["id"] }
-    assert_equal [1, 2, 3], matcher.matches(name: "Copper Dragon").map { |row| row["id"] }
+    assert_equal [2, 1, 3].map(&:to_s), matcher.matches(name: "Copper Dragon", creator: "EliteStudio").map { |row| row["id"] }
+    assert_equal [1, 2, 3].map(&:to_s), matcher.matches(name: "Copper Dragon").map { |row| row["id"] }
   end
 
   def test_creator_tie_break_applies_before_the_bounded_shortlist
     rows = (1..Matcher::MAX_CANDIDATES + 10).map { |id| item(id, "Copper Dragon", creator: "Other studio") }
     rows << item(999, "Copper Dragon", creator: "Wanted Studio")
 
-    assert_equal 999, Matcher.new(rows).matches(name: "Copper Dragon", creator: "WantedStudio").first["id"]
+    assert_equal "999", Matcher.new(rows).matches(name: "Copper Dragon", creator: "WantedStudio").first["id"]
   end
 
   def test_limits_empty_invalid_and_excessive_queries_are_bounded
@@ -111,10 +112,23 @@ class LibraryMatcherTest < Minitest::Test
     assert_equal [], Matcher.new([]).matches(name: "Copper Dragon")
   end
 
+  def test_global_creation_identifiers_are_preserved_in_suggestions
+    id = Base64.strict_encode64("Creation/92001").delete("=")
+    row = item(id, "Copper Dragon")
+    assert_equal [id], Matcher.new([row]).matches(name: "Copper Dragon").map { |match| match["id"] }
+  end
+
+  def test_valid_long_non_ascii_titles_remain_available_for_matching
+    title = "\u9f8d" * 255
+    assert_operator title.bytesize, :>, 512
+    row = item("long-title", title)
+    assert_equal [row], Matcher.new([row]).matches(name: title)
+  end
+
   def test_invalid_and_oversize_inventory_is_rejected_with_a_fixed_error
-    [nil, {}, [item(1, "x" * (Matcher::MAX_ITEM_BYTES + 1))], [item(0, "Dragon")], [item(1, "Dragon"), item(1, "Dragon")], [item(1, "Dragon").merge("creator_name" => nil)], (1..Matcher::MAX_ITEMS + 1).map { |id| item(id, "Dragon") }].each do |rows|
+    [nil, {}, [item(1, "x" * (Matcher::MAX_ITEM_BYTES + 1))], [item("invalid id!", "Dragon")], [item(1, "Dragon"), item(1, "Dragon")], [item(1, "Dragon").merge("creator_name" => nil)], (1..Matcher::MAX_ITEMS + 1).map { |id| item(id, "Dragon") }].each do |rows|
       error = assert_raises(Matcher::Error) { Matcher.new(rows) }
-      assert_equal "MyMiniFactory library suggestions are unavailable for this inventory.", error.message
+      assert_equal "Cults3D library suggestions are unavailable for this inventory.", error.message
       assert_nil error.cause
     end
   end
@@ -127,7 +141,7 @@ class LibraryMatcherTest < Minitest::Test
     result = nil
     elapsed = Benchmark.realtime { result = matcher.matches(name: "Ancient Coppre Drgaon.stl") }
 
-    assert_equal [Matcher::MAX_ITEMS], result.map { |row| row["id"] }
+    assert_equal [Matcher::MAX_ITEMS].map(&:to_s), result.map { |row| row["id"] }
     assert_operator initialization, :<, 15.0, "bounded 20,000-row initialization took #{initialization.round(3)}s"
     assert_operator elapsed, :<, 3.0, "bounded 20,000-row query took #{elapsed.round(3)}s"
     puts "Library matcher 20,000 rows: initialize #{initialization.round(3)}s; query #{elapsed.round(3)}s"
@@ -141,7 +155,7 @@ class LibraryMatcherTest < Minitest::Test
     matcher = Matcher.new(rows)
     elapsed = Benchmark.realtime do
       assert_equal 5, matcher.matches(name: repeated).length
-      assert_equal 1001, matcher.matches(name: unique.sub(/wordcl\z/, "wodrcl")).first["id"]
+      assert_equal "1001", matcher.matches(name: unique.sub(/wordcl\z/, "wodrcl")).first["id"]
     end
 
     assert_operator elapsed, :<, 1.0, "bounded repeated-token queries took #{elapsed.round(3)}s"

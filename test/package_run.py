@@ -10,19 +10,19 @@ import zipfile
 def main():
     root = Path(__file__).resolve().parents[1]
     version = "1.2.3"
-    with tempfile.TemporaryDirectory(prefix="manyfold-myminifactory-package-test-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="manyfold-cults3d-package-test-") as temporary:
         workspace = Path(temporary)
         source = workspace / "source"
         source.mkdir()
         for directory in ("app", "config", "db", "lib"):
             shutil.copytree(root / directory, source / directory)
-        shutil.copy2(root / "manyfold_myminifactory.gemspec", source)
+        shutil.copy2(root / "manyfold_cults3d.gemspec", source)
         (source / "bin").mkdir()
         shutil.copy2(root / "bin/package", source / "bin/package")
         subprocess.run([sys.executable, str(source / "bin/package"), version], check=True, stdout=subprocess.DEVNULL)
 
         plugin = workspace / "plugin"
-        with zipfile.ZipFile(source / "dist/manyfold_myminifactory.zip") as archive:
+        with zipfile.ZipFile(source / "dist/manyfold_cults3d.zip") as archive:
             archive.extractall(plugin)
         (plugin / "test").mkdir()
         print(f"Testing plugin from release ZIP (version {version}).", flush=True)

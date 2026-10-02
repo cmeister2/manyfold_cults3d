@@ -1,5 +1,5 @@
 en:
-  manyfold_myminifactory:
+  manyfold_cults3d:
     errors:
-      request_failed: "Could not get MyMiniFactory model details."
-      sync_failed: "Could not sync the MyMiniFactory model."
+      request_failed: "Could not get Cults3D model details."
+      sync_failed: "Could not sync the Cults3D model."
