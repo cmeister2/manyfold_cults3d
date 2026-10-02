@@ -29,9 +29,8 @@ jobs:
       - run: bin/test
 
   release:
-    name: Publish plugin release
+    name: Preview or publish plugin release
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -46,7 +45,24 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
+      - name: Preview release
+        if: github.event_name != 'push' || github.ref != 'refs/heads/main'
+        run: npm run release:dry-run
       - name: Tag and publish release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: npm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  success:
+    name: Success
+    if: ${{ always() }}
+    needs: [test, release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require all jobs to pass
+        env:
+          NEEDS_RESULTS: ${{ toJSON(needs) }}
+        shell: bash
+        run: jq -e 'all(.[]; .result == "success")' <<< "$NEEDS_RESULTS"

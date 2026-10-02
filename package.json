@@ -11,7 +11,8 @@
   },
   "scripts": {
     "release": "semantic-release",
-    "test:release": "node --test test/release_notes_test.mjs"
+    "release:dry-run": "node bin/release-dry-run.mjs",
+    "test:release": "node --test test/release*_test.mjs"
   },
   "devDependencies": {
     "@semantic-release/commit-analyzer": "13.0.1",

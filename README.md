@@ -77,13 +77,19 @@ npm ci --ignore-scripts
 npm run test:release
 ```
 
-These check release-note rendering, links, and version bump selection. CI runs both test commands before publishing.
-
 ## Releases
 
 Semantic-release publishes from `main` using Conventional Commits: `fix:` produces a patch release, `feat:` a minor release, and a breaking change a major release.
 
 The source gemspec stays at `0.0.0`. The release prepare step writes the calculated version into the gemspec inside `manyfold_myminifactory.zip`.
+
+Pull requests and manual CI runs preview the proposed release without publishing. You can run the same preview locally:
+
+```sh
+npm run release:dry-run
+```
+
+The preview uses a temporary local Git remote and needs no GitHub credentials. It analyses commits and renders release notes; release preparation and publishing run only on a push to `main`.
 
 To build a ZIP locally with a specific version:
 
