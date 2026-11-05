@@ -28,6 +28,12 @@ class Cults3DPluginTest < Minitest::Test
     super.sort
   end
 
+  # Minitest autorun starts after rails runner has closed its executor context.
+  # Let request middleware open its own executor while retaining CurrentAttributes.
+  def run
+    Rails.application.executor.perform { super }
+  end
+
   def setup
     @original_settings = SETTINGS.to_h do |key|
       setting = SiteSettings.find_by(var: key)
@@ -262,6 +268,13 @@ class Cults3DPluginTest < Minitest::Test
 
   private
 
+  # Manyfold renamed the federation actor association after our minimum host.
+  def federation_actor(record)
+    return unless record
+
+    record.respond_to?(:fedipub_actor) ? record.fedipub_actor : record.federails_actor
+  end
+
   def configure_api(key = "fictional-api-key", username = "fictional-user")
     SiteSettings.cults3d_api_username = username
     SiteSettings.cults3d_api_key = key
@@ -307,8 +320,14 @@ class Cults3DPluginTest < Minitest::Test
         downloads = []
         with_status_image_download(downloads) do
           models.each do |model|
-            model.create_or_update_file_from_url(url: "https://example.invalid/fictional-preview.png",
+            image = model.create_or_update_file_from_url(url: "https://example.invalid/fictional-preview.png",
               filename: "fictional-preview.png")
+            # Newer hosts promote downloads in a worker; finish that normal step
+            # before checking preservation of the files in library storage.
+            if defined?(::FilePromoteJob) && image.attachment_attacher.cached?
+              ::FilePromoteJob.perform_now(ModelFileUploader::Attacher.name, ModelFile.name,
+                image.id, "attachment", image.attachment.data)
+            end
             model.reload
             FileUtils.mkdir_p(File.join(@library_path, model.path))
             File.binwrite(File.join(@library_path, model.path, "fictional-local-file.txt"), "Fictional local model notes.\n")

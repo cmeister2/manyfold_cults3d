@@ -380,7 +380,7 @@ class Cults3DPluginTest
     yield
   ensure
     ::Model.where.not(id: native_ids).find_each do |model|
-      model.federails_actor&.update_columns(local: true)
+      federation_actor(model)&.update_columns(local: true)
       model.destroy!
     end
     ::Creator.where.not(id: creator_ids).find_each(&:destroy!)
