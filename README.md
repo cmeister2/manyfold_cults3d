@@ -42,6 +42,12 @@ Run plugin and package tests with Python 3 and Docker:
 bin/test
 ```
 
+Tests use the development image by default. CI runs the source and packaged plugin against Manyfold 0.146.0 and 0.154.0. To test another host image locally:
+
+```sh
+MANYFOLD_TEST_IMAGE=manyfold3d/manyfold-solo:0.146.0 bin/test
+```
+
 Tests use disposable containers and mocked API responses. Release tooling tests require Node 24.15 or newer:
 
 ```sh

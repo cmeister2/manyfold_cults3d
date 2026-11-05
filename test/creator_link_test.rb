@@ -167,7 +167,7 @@ class Cults3DPluginTest
       assert_empty creator_link_jobs
 
       model.update!(sensitive: false)
-      creator.federails_actor.update_columns(local: false)
+      federation_actor(creator).update_columns(local: false)
       refute ::CreatorPolicy.new(@users.first, creator.reload).sync?
       assert_empty creator_link_menu_items(creator_card(creator_index_document(session), creator))
       session.get("/manyfold_cults3d/creator_link", params: {creator_id: creator.to_param})
@@ -259,7 +259,7 @@ class Cults3DPluginTest
       form = get_creator_link_form(session, creator)
       token = form.at_css('input[name="authenticity_token"]')["value"]
       assert_creator_link_forbidden(session, "missing-fictional-creator", source_link.id, token)
-      creator.federails_actor.update_columns(local: false)
+      federation_actor(creator).update_columns(local: false)
       assert_creator_link_forbidden(session, creator.to_param, source_link.id, token)
       assert_empty creator.links.reload
       assert_empty creator_link_jobs
@@ -377,7 +377,7 @@ class Cults3DPluginTest
         @users.first.update!(sensitive_content_handling: "hide")
         ManyfoldCults3d::CreatorSyncJob.perform_now(creator.id, @users.first.id, source_link.id)
         model.update!(sensitive: false)
-        creator.federails_actor.update_columns(local: false)
+        federation_actor(creator).update_columns(local: false)
         ManyfoldCults3d::CreatorSyncJob.perform_now(creator.id, @users.first.id, source_link.id)
       end
       assert_empty client.object_calls
@@ -473,7 +473,7 @@ class Cults3DPluginTest
       source_link = model.links.create!(url: "https://cults3d.com/en/3d-model/art/fictional-model-92001")
       yield creator, model, source_link
     ensure
-      creator&.federails_actor&.update_columns(local: true) if creator&.persisted?
+      federation_actor(creator)&.update_columns(local: true) if creator&.persisted?
     end
   end
 
